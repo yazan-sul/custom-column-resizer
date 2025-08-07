@@ -3,7 +3,8 @@ import '../index.css';
 import { headers, users } from '../data/data';
 
 const ResizableTable: React.FC = () => {
-  const [columnWidths, setColumnWidths] = useState<number[]>([250, 250, 250]);
+  const columnWidthsRef = useRef<number[]>([250, 250, 250]);
+
   const tableRef = useRef<HTMLTableElement | null>(null);
   const startX = useRef<number>(0);
   const startWidth = useRef<number>(0);
@@ -13,7 +14,8 @@ const ResizableTable: React.FC = () => {
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
     activeCol.current = index;
     startX.current = e.clientX;
-    startWidth.current = columnWidths[index];
+    startWidth.current = columnWidthsRef.current[index];
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
@@ -21,18 +23,30 @@ const ResizableTable: React.FC = () => {
     if (activeCol.current === null) return;
     // the distance moved
     const movedX = e.clientX - startX.current;
-    setColumnWidths((prevWidths) => {
-      const widths = [...prevWidths];
-      const newWidth = startWidth.current + movedX;
-      widths[activeCol.current!] = newWidth;
-      return widths;
-    });
+    const newWidth = Math.max(startWidth.current + movedX, 50);
+    columnWidthsRef.current[activeCol.current] = newWidth;
+    setWidths();
   };
   const handleMouseUp = () => {
     activeCol.current = null;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
+  const setWidths = () => {
+  const table = tableRef.current;
+  if (!table) return;
+
+  const rows = Array.from(table.rows);
+  for (const row of rows) {
+    for (let i = 0; i < row.cells.length; i++) {
+      row.cells[i].style.width = `${columnWidthsRef.current[i]}px`;
+    }
+  }
+  };
+
+useEffect(() => {
+  setWidths();
+}, []);
 
   return (
     <table ref={tableRef}>
@@ -41,7 +55,7 @@ const ResizableTable: React.FC = () => {
           {headers.map((header, index) => (
             <th
               key={index}
-              style={{ width: columnWidths[index], position: 'relative' }}
+              style={{ position: 'relative' }}
               className="resizable-header"
             >
               {header}
@@ -57,9 +71,7 @@ const ResizableTable: React.FC = () => {
         {users.map((user, index) => (
           <tr key={index}>
             {Object.values(user).map((value, colIndex) => (
-              <td key={colIndex} style={{ width: columnWidths[colIndex] }}>
-                {value}
-              </td>
+              <td key={colIndex}>{value}</td>
             ))}
           </tr>
         ))}
